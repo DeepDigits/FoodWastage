@@ -57,18 +57,50 @@ class _DonateFormScreenState extends State<DonateFormScreen> {
   Future<void> _fetchLocation() async {
     setState(() => _locationLoading = true);
     try {
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
+      // 1) Request permission via permission_handler (plays nice with MIUI)
+      var status = await Permission.location.status;
+      if (status.isDenied) {
+        status = await Permission.location.request();
       }
-      if (perm == LocationPermission.deniedForever ||
-          perm == LocationPermission.denied) {
+      if (status.isPermanentlyDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Location permission denied. Enable it in App Settings.',
+              ),
+              action: SnackBarAction(
+                label: 'Open Settings',
+                onPressed: openAppSettings,
+              ),
+            ),
+          );
+        }
         setState(() {
           _address = 'Location permission denied';
           _locationLoading = false;
         });
         return;
       }
+      if (!status.isGranted) {
+        setState(() {
+          _address = 'Location permission denied';
+          _locationLoading = false;
+        });
+        return;
+      }
+
+      // 2) Check if location services are enabled
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _address = 'Location services are disabled. Please enable GPS.';
+          _locationLoading = false;
+        });
+        return;
+      }
+
+      // 3) Get current position
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -160,6 +192,35 @@ class _DonateFormScreenState extends State<DonateFormScreen> {
       });
 
       // ── Post-analysis alerts ──
+
+      // Gemini response could not be parsed → show error and clear
+      if (result['parse_error'] == true) {
+        setState(() {
+          _analysis = null;
+          _analysisError =
+              'Could not analyse the image. Please retake the photo '
+              'with better lighting and try again.';
+        });
+        return;
+      }
+
+      // Not a food item at all → block submission immediately
+      if (result['is_food'] == false) {
+        _showAlert(
+          'Not a Food Item',
+          'The image does not appear to contain food or a food product. '
+              'Only food items are accepted for donation. '
+              'Please retake the photo.',
+          isWarning: true,
+        );
+        // Clear the captured image so the user must retake
+        setState(() {
+          _imageFile = null;
+          _analysis = null;
+        });
+        return;
+      }
+
       if (_foodType == 'packed' && result['expiry_detected'] == false) {
         _showAlert(
           'Expiry Date Not Detected',

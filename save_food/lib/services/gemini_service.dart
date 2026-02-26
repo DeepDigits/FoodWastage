@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = 'AIzaSyBWh3mQ1DjJzcetpqtd7ZnxwxwCRbh6Zr8';
+  static const String _apiKey = 'AIzaSyBOOmQ7ju0mFnWUHTEmd5pT28eo2TvpEVY';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
@@ -36,7 +36,11 @@ class GeminiService {
           ],
         },
       ],
-      "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
+      "generationConfig": {
+        "temperature": 0.1,
+        "maxOutputTokens": 1024,
+        "response_mime_type": "application/json",
+      },
     };
 
     final response = await http.post(
@@ -61,16 +65,22 @@ class GeminiService {
   static String _buildPrompt(String foodType) {
     final common = '''
 You are a food safety analyst AI for a zero-waste food donation app called DEMETRA.
-Analyse the food image provided and return **only** a valid JSON object (no markdown, no explanation outside the JSON).
+Analyse the image provided and return **only** a valid JSON object.
+Do NOT include markdown fences, backticks, or any text outside the JSON object.
 
-The JSON must have these fields:
-- "title": a short descriptive name for the food item (string)
-- "description": a brief description ~ 1-2 sentences (string)
-- "detected_items": list of food items you can identify (list of strings)
-- "freshness": one of "fresh", "slightly_old", "spoiled" (string)
-- "is_safe": whether this food is safe to donate (boolean)
+The JSON must have these exact fields:
+- "is_food": true if the image contains food or a food product, false otherwise (boolean)
+- "title": a short descriptive name for the item (string, or null if not food)
+- "description": a 1-2 sentence description (string, or null if not food)
+- "detected_items": list of items visible in the image (list of strings)
+- "freshness": one of "fresh", "slightly_old", "spoiled", or null if not food (string)
+- "is_safe": whether this food is safe to donate — set false if not food (boolean)
 - "category": one of "edible", "recyclable", "rejected" (string)
-- "reason": a brief reason for the safety/category decision (string)
+- "reason": brief reason for the decision (string)
+
+IMPORTANT: If the image does NOT show food (e.g. a person, object, scene, non-food item), set:
+  is_food=false, is_safe=false, category="rejected",
+  reason="Image does not contain a food item."
 ''';
 
     if (foodType == 'packed') {
@@ -110,23 +120,59 @@ Additional rules for ORGANIC / RAW food (fruits, vegetables, raw produce):
     }
   }
 
-  /// Parse a JSON object from Gemini's text output, which may be wrapped in
-  /// ```json ... ``` markers or contain leading/trailing text.
+  /// Robustly extract a JSON object from Gemini output.
+  /// When response_mime_type=application/json is set the text should already
+  /// be clean JSON, but we still handle all wrapping variants as a fallback.
   static Map<String, dynamic> _extractJson(String text) {
-    // Try to find JSON block in markdown code fence
-    final fencePattern = RegExp(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```');
-    final fenceMatch = fencePattern.firstMatch(text);
-    if (fenceMatch != null) {
-      return jsonDecode(fenceMatch.group(1)!) as Map<String, dynamic>;
-    }
+    // 0. Strip <think>...</think> blocks produced by thinking models
+    var cleaned = text
+        .replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '')
+        .trim();
 
-    // Try to find a raw JSON object
+    // 1. Direct parse (works when response_mime_type=application/json is set)
+    try {
+      final decoded = jsonDecode(cleaned);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+
+    // 2. Strip markdown fences (```json ... ``` or ``` ... ```)
+    final fencePattern = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+    final fenceMatch = fencePattern.firstMatch(cleaned);
+    final candidate1 = fenceMatch?.group(1)?.trim() ?? '';
+
+    // 3. Find the outermost { ... } block (handles leading/trailing text)
     final jsonPattern = RegExp(r'\{[\s\S]*\}');
-    final jsonMatch = jsonPattern.firstMatch(text);
-    if (jsonMatch != null) {
-      return jsonDecode(jsonMatch.group(0)!) as Map<String, dynamic>;
+    final jsonMatch = jsonPattern.firstMatch(cleaned);
+    final candidate2 = jsonMatch?.group(0)?.trim() ?? '';
+
+    // Try each candidate and return first that parses successfully
+    for (final raw in [candidate1, candidate2]) {
+      if (raw.isEmpty) continue;
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) return decoded;
+      } catch (_) {
+        // try next candidate
+      }
     }
 
-    throw Exception('Could not parse Gemini response as JSON:\n$text');
+    // All strategies failed – return a structured error map so the
+    // caller can show a friendly message instead of crashing.
+    return {
+      'is_food': false,
+      'is_safe': false,
+      'category': 'rejected',
+      'title': null,
+      'description': null,
+      'detected_items': <String>[],
+      'freshness': null,
+      'expiry_date': null,
+      'expiry_detected': false,
+      'safety_hours': null,
+      'reason':
+          'Could not analyse the image. Please retake the photo '
+          'with better lighting and try again.',
+      'parse_error': true,
+    };
   }
 }

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class CollectorLoginScreen extends StatefulWidget {
+  const CollectorLoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<CollectorLoginScreen> createState() => _CollectorLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _CollectorLoginScreenState extends State<CollectorLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -24,19 +26,16 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMsg = null;
     });
     try {
-      final res = await ApiService.login(
+      final res = await ApiService.collectorLogin(
         _usernameCtrl.text.trim(),
         _passwordCtrl.text,
       );
       if (!mounted) return;
       if (res['statusCode'] == 200) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, '/collector-dashboard');
       } else {
         setState(() {
-          _errorMsg =
-              res['non_field_errors']?.first ??
-              res['detail'] ??
-              'Login failed. Please try again.';
+          _errorMsg = res['error'] ?? 'Login failed. Please try again.';
         });
       }
     } catch (e) {
@@ -61,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // ─── Background Gradient ─────────────────────────────
+          // Background gradient
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -69,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppColors.primary.withOpacity(0.15),
+                    Colors.orange.withOpacity(0.15),
                     AppColors.background,
                     AppColors.background,
                   ],
@@ -77,7 +76,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          // ─── Organic Leaf Shape or Decoration ────────────────
           Positioned(
             top: -60,
             right: -60,
@@ -85,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 200,
               height: 200,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: Colors.orange.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
             ),
@@ -97,9 +95,20 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.1),
+                color: Colors.deepOrange.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
+            ),
+          ),
+
+          // Back button
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 8,
+            child: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_rounded),
+              color: AppColors.textPrimary,
             ),
           ),
 
@@ -109,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ─── Logo / Branding ───────────────────────────
+                  // Logo
                   Container(
                     width: 80,
                     height: 80,
@@ -118,39 +127,39 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(0.2),
+                          color: Colors.orange.withOpacity(0.2),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
                       ],
                     ),
                     child: const Icon(
-                      Icons.eco_rounded,
-                      color: AppColors.primary,
+                      Icons.local_shipping_rounded,
+                      color: Colors.deepOrange,
                       size: 40,
                     ),
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Welcome Back!',
-                    style: TextStyle(
+                    'Collector Login',
+                    style: GoogleFonts.poppins(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primaryDark,
+                      color: Colors.deepOrange.shade800,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Login to continue your zero-waste journey',
+                    'Sign in to manage food collections',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: GoogleFonts.poppins(
                       fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 32),
 
-                  // ─── Form Card ─────────────────────────────────
+                  // Form Card
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -179,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: Text(
                                 _errorMsg!,
-                                style: const TextStyle(
+                                style: GoogleFonts.poppins(
                                   color: AppColors.error,
                                   fontSize: 13,
                                 ),
@@ -189,8 +198,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             controller: _usernameCtrl,
                             textInputAction: TextInputAction.next,
+                            style: GoogleFonts.poppins(fontSize: 14),
                             decoration: InputDecoration(
                               labelText: 'Username',
+                              labelStyle: GoogleFonts.poppins(),
                               prefixIcon: const Icon(
                                 Icons.person_outline_rounded,
                               ),
@@ -203,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: const BorderSide(
-                                  color: AppColors.primary,
+                                  color: Colors.deepOrange,
                                 ),
                               ),
                               filled: true,
@@ -218,8 +229,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _passwordCtrl,
                             obscureText: _obscure,
                             textInputAction: TextInputAction.done,
+                            style: GoogleFonts.poppins(fontSize: 14),
                             decoration: InputDecoration(
                               labelText: 'Password',
+                              labelStyle: GoogleFonts.poppins(),
                               prefixIcon: const Icon(
                                 Icons.lock_outline_rounded,
                               ),
@@ -242,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: const BorderSide(
-                                  color: AppColors.primary,
+                                  color: Colors.deepOrange,
                                 ),
                               ),
                               filled: true,
@@ -260,10 +273,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: ElevatedButton(
                               onPressed: _loading ? null : _submit,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
+                                backgroundColor: Colors.deepOrange,
                                 foregroundColor: Colors.white,
                                 elevation: 8,
-                                shadowColor: AppColors.primary.withOpacity(0.4),
+                                shadowColor: Colors.deepOrange.withOpacity(0.4),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -277,9 +290,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                         color: Colors.white,
                                       ),
                                     )
-                                  : const Text(
-                                      'Login',
-                                      style: TextStyle(
+                                  : Text(
+                                      'Login as Collector',
+                                      style: GoogleFonts.poppins(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -288,51 +301,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'New to Demetra? ',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                      GestureDetector(
-                        onTap: () =>
-                            Navigator.pushReplacementNamed(context, '/signup'),
-                        child: const Text(
-                          'Create Account',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/collector-login'),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.local_shipping_rounded,
-                          size: 16,
-                          color: Colors.deepOrange,
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Login as Food Waste Collector',
-                          style: TextStyle(
-                            color: Colors.deepOrange,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 20),
