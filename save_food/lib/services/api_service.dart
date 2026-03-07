@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Change this to your machine's IP if testing on a physical device
-  static const String baseUrl = 'http://192.168.0.3:8000/api';
+  static const String baseUrl = 'http://10.0.2.2:8000/api';
 
   static Future<Map<String, String>> _authHeaders() async {
     final prefs = await SharedPreferences.getInstance();
